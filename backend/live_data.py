@@ -18,7 +18,7 @@ def _query_overpass(url, query):
         print(f"⚠️ Failed to query {url}: {e}")
         return None
 
-def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=500):
+def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=300):
     """Fetches real places from OpenStreetMap near a coordinate."""
     
     query = f"""
