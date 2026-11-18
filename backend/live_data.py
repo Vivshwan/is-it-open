@@ -1,62 +1,5 @@
 import overpy
 import urllib.request
-import sqlite3
-import json
-import time
-import os
-
-# --- CACHE SETUP ---
-CACHE_DB = "places_cache.db"
-CACHE_TTL = 600  # 10 minutes in seconds
-
-def init_cache():
-    """Creates the cache database if it doesn't exist."""
-    conn = sqlite3.connect(CACHE_DB)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS cache (
-            key TEXT PRIMARY KEY,
-            data TEXT,
-            timestamp INTEGER
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-def get_from_cache(key):
-    """Fetches data from cache if it exists and is not expired."""
-    try:
-        conn = sqlite3.connect(CACHE_DB)
-        cursor = conn.execute("SELECT data, timestamp FROM cache WHERE key = ?", (key,))
-        row = cursor.fetchone()
-        conn.close()
-        
-        if row:
-            data, timestamp = row
-            # Check if the data is older than the TTL (10 minutes)
-            if time.time() - timestamp < CACHE_TTL:
-                print(f"✅ Cache Hit for {key}! (Skipped Overpass)")
-                return json.loads(data)
-    except Exception as e:
-        print(f"⚠️ Cache read error: {e}")
-    return None
-
-def save_to_cache(key, data):
-    """Saves fresh data to the cache."""
-    try:
-        conn = sqlite3.connect(CACHE_DB)
-        conn.execute(
-            "REPLACE INTO cache (key, data, timestamp) VALUES (?, ?, ?)",
-            (key, json.dumps(data), int(time.time()))
-        )
-        conn.commit()
-        conn.close()
-        print(f"💾 Saved to cache for {key}.")
-    except Exception as e:
-        print(f"⚠️ Cache write error: {e}")
-
-# Initialize the cache on load
-init_cache()
-
 
 def _query_overpass(url, query):
     """Helper function to query a specific Overpass server."""
@@ -73,20 +16,9 @@ def _query_overpass(url, query):
         print(f"⚠️ Failed to query {url}: {e}")
         return None
 
-def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=350):
+def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=500):
     """Fetches real places from OpenStreetMap near a coordinate."""
     
-    # --- 1. CHECK CACHE FIRST ---
-    # We round the lat/lon to 3 decimals to reuse cache for nearby users
-    cache_key = f"{round(lat, 3)}_{round(lon, 3)}"
-    cached_data = get_from_cache(cache_key)
-    if cached_data:
-        return cached_data
-
-    # --- 2. FETCH FROM OVERPASS IF CACHE MISSES ---
-    print(f"❌ Cache Miss for {cache_key}. Hitting Overpass...")
-    
-    # Reduced radius from 500 to 350 for speed
     query = f"""
     [out:json][timeout:25];
     (
@@ -98,11 +30,10 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=350):
     out center 50;
     """
 
-    # Prioritized the fastest mirrors
     mirrors = [
-        "https://overpass.private.coffee/api/interpreter",
+        "https://overpass-api.de/api/interpreter",
         "https://overpass.kumi.systems/api/interpreter",
-        "https://overpass-api.de/api/interpreter"
+        "https://overpass.private.coffee/api/interpreter"
     ]
 
     result = None
@@ -120,7 +51,6 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=350):
         print("❌ All Overpass servers failed or returned empty results.")
         return []
 
-    # --- 3. PROCESS THE DATA ---
     places = []
     all_elements = result.nodes + result.ways
 
@@ -131,6 +61,7 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=350):
         if not name:
             continue
 
+        # Extract coordinates
         if isinstance(element, overpy.Node):
             place_lat = element.lat
             place_lon = element.lon
@@ -143,12 +74,14 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=350):
         if place_lat is None or place_lon is None:
             continue
 
+        # Extract and clean phone number
         raw_phone = tags.get("phone") or tags.get("contact:phone")
         phone = raw_phone.replace(" ", "").replace("-", "") if raw_phone else None
 
         category_raw = tags.get("amenity") or tags.get("shop") or "place"
         category = category_raw.replace("_", " ").capitalize()
 
+        # Pass the raw opening_hours string to the frontend
         places.append({
             "id": element.id,
             "name": name,
@@ -160,10 +93,4 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=350):
         })
 
     places.sort(key=lambda x: x["name"])
-    final_result = places[:50]
-
-    # --- 4. SAVE TO CACHE BEFORE RETURNING ---
-    if final_result:
-        save_to_cache(cache_key, final_result)
-
-    return final_result
+    return places[:50]
