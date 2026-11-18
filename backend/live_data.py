@@ -5,15 +5,15 @@ from opening_hours import OpeningHours
 def _query_overpass(url, query):
     """Helper function to query a specific Overpass server."""
     try:
-        # Set a custom User-Agent
+        # Set a custom User-Agent to avoid 406 errors from OSM
         opener = urllib.request.build_opener()
         opener.addheaders = [
             ("User-Agent", "IsItOpen-Assessment/1.0 (https://github.com/your-username/is-it-open)")
         ]
         urllib.request.install_opener(opener)
 
-        # Initialize API with specific URL and longer timeout (60s)
-        api = overpy.Overpass(url=url, timeout=60)
+        # Removed the invalid 'timeout' parameter from here
+        api = overpy.Overpass(url=url)
         return api.query(query)
     except Exception as e:
         print(f"⚠️ Failed to query {url}: {e}")
@@ -22,8 +22,9 @@ def _query_overpass(url, query):
 def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=500):
     """Fetches real places from OpenStreetMap near a coordinate."""
     
+    # ADDED [timeout:60] right here at the start of the query
     query = f"""
-    [out:json];
+    [out:json][timeout:60];
     (
       node(around:{radius},{lat},{lon})["amenity"~"cafe|restaurant|pharmacy|bar|fast_food|pub|library|bank|hospital|fuel|cinema"];
       way(around:{radius},{lat},{lon})["amenity"~"cafe|restaurant|pharmacy|bar|fast_food|pub|library|bank|hospital|fuel|cinema"];
@@ -35,7 +36,9 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=500):
 
     # List of Overpass mirrors to try in order
     mirrors = [
-        "https://overpass-api.de/api/interpreter"        # Primary
+        "https://overpass-api.de/api/interpreter",        # Primary
+        "https://overpass.kumi.systems/api/interpreter",  # Mirror 1
+        "https://overpass.private.coffee/api/interpreter" # Mirror 2
     ]
 
     result = None
