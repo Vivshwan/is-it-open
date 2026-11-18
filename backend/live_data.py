@@ -1,11 +1,11 @@
 import overpy
 import urllib.request
 from opening_hours import OpeningHours
+from datetime import datetime, timedelta
 
 def _query_overpass(url, query):
     """Helper function to query a specific Overpass server."""
     try:
-        # Set a custom User-Agent to avoid 406 errors from OSM
         opener = urllib.request.build_opener()
         opener.addheaders = [
             ("User-Agent", "IsItOpen-Assessment/1.0 (https://github.com/your-username/is-it-open)")
@@ -18,24 +18,24 @@ def _query_overpass(url, query):
         print(f"⚠️ Failed to query {url}: {e}")
         return None
 
-def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=300):
+def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=300, tz_offset=0):
     """Fetches real places from OpenStreetMap near a coordinate."""
     
     query = f"""
     [out:json][timeout:60];
     (
-      node(around:{radius},{lat},{lon})["amenity"~"cafe|restaurant|pharmacy|bar|fast_food|pub|library|bank|hospital|fuel|cinema"];
-      way(around:{radius},{lat},{lon})["amenity"~"cafe|restaurant|pharmacy|bar|fast_food|pub|library|bank|hospital|fuel|cinema"];
-      node(around:{radius},{lat},{lon})["shop"];
-      way(around:{radius},{lat},{lon})["shop"];
+      node(around:{radius},{lat},{lon})["amenity"]["name"];
+      way(around:{radius},{lat},{lon})["amenity"]["name"];
+      node(around:{radius},{lat},{lon})["shop"]["name"];
+      way(around:{radius},{lat},{lon})["shop"]["name"];
     );
     out center;
     """
 
     mirrors = [
-        "https://overpass-api.de/api/interpreter",        # Primary
-        "https://overpass.kumi.systems/api/interpreter",  # Mirror 1
-        "https://overpass.private.coffee/api/interpreter" # Mirror 2
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://overpass.private.coffee/api/interpreter"
     ]
 
     result = None
@@ -44,7 +44,7 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=300):
         result = _query_overpass(url, query)
         
         if result and (len(result.nodes) > 0 or len(result.ways) > 0):
-            print(f"✅ Success with {url}. Found {len(result.nodes) + len(result.ways)} elements.")
+            print(f"✅ Success with {url}.")
             break
         else:
             print(f"⚠️ No results from {url}. Trying next mirror...")
@@ -56,6 +56,11 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=300):
     places = []
     all_elements = result.nodes + result.ways
 
+    # Calculate the user's local time based on their offset
+    # JS getTimezoneOffset() is minutes behind UTC. (IST is -330).
+    # So we subtract the offset to get local time.
+    user_local_time = datetime.utcnow() - timedelta(minutes=tz_offset)
+
     for element in all_elements:
         tags = element.tags
         name = tags.get("name")
@@ -64,7 +69,6 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=300):
         if not name:
             continue
 
-        # --- NEW: Extract Coordinates for Map ---
         if isinstance(element, overpy.Node):
             place_lat = element.lat
             place_lon = element.lon
@@ -76,16 +80,13 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=300):
 
         if place_lat is None or place_lon is None:
             continue
-        # ----------------------------------------
 
-        # Extract and clean phone number
         raw_phone = tags.get("phone") or tags.get("contact:phone")
         phone = raw_phone.replace(" ", "").replace("-", "") if raw_phone else None
 
         category_raw = tags.get("amenity") or tags.get("shop") or "place"
         category = category_raw.replace("_", " ").capitalize()
 
-        # Status Logic
         if not opening_hours_str:
             is_open = False
             status_message = "Hours unknown"
@@ -93,7 +94,9 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=300):
         else:
             try:
                 oh = OpeningHours(opening_hours_str)
-                status = oh.state() 
+                # Check status based on the USER'S local time
+                status = oh.state(user_local_time) 
+                next_change = oh.next_change(user_local_time)
                 
                 if status == "unknown":
                     is_open = False
@@ -102,13 +105,18 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=300):
                 elif status == "open":
                     is_open = True
                     status_message = "Open Now"
-                    next_change = oh.next_change()
                     time_info = f"Closes at {next_change.strftime('%H:%M')}" if next_change else "Open 24h"
                 else:
                     is_open = False
                     status_message = "Closed"
-                    next_change = oh.next_change()
-                    time_info = f"Opens at {next_change.strftime('%H:%M')}" if next_change else "Closed"
+                    if next_change:
+                        # UX Fix: Show 'tomorrow' if the next opening is on a different date
+                        if next_change.date() > user_local_time.date():
+                            time_info = f"Opens tomorrow at {next_change.strftime('%H:%M')}"
+                        else:
+                            time_info = f"Opens at {next_change.strftime('%H:%M')}"
+                    else:
+                        time_info = "Closed"
             except Exception:
                 is_open = False
                 status_message = "Hours unparseable"
@@ -122,8 +130,8 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=300):
             "status_message": status_message,
             "time_info": time_info,
             "phone": phone,
-            "lat": place_lat,  # <-- Added for Map
-            "lon": place_lon   # <-- Added for Map
+            "lat": place_lat,
+            "lon": place_lon
         })
 
     places.sort(key=lambda x: x["name"])

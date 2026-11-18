@@ -21,12 +21,11 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [showOnlyOpen, setShowOnlyOpen] = useState(false);
   
-  // Location Toggle State
   const [locationMode, setLocationMode] = useState<"default" | "user" | null>(null);
 
+  // Point this to your live backend
   const API_BASE = "https://is-it-open-7g44.vercel.app"; 
 
-  // Fetch default location on mount
   useEffect(() => {
     if (locationMode === null) {
       setLocationMode("default");
@@ -46,7 +45,6 @@ export default function App() {
           fetchPlaces(latitude, longitude);
         },
         () => {
-          // If user denies permission or it fails, fallback to default
           setError("Location access denied. Showing default location.");
           setLocationMode("default");
           fetchPlaces(28.6315, 77.2167);
@@ -63,7 +61,10 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/places?lat=${lat}&lon=${lon}`);
+      // Get the user's local timezone offset
+      const tzOffset = new Date().getTimezoneOffset();
+      
+      const res = await fetch(`${API_BASE}/api/places?lat=${lat}&lon=${lon}&tz=${tzOffset}`);
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setPlaces(data);
@@ -90,8 +91,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-gray-100 font-sans selection:bg-brand-500/30 pb-10">
-      
-      {/* Header */}
       <header className="bg-[#12121c] border-b border-gray-800 sticky top-0 z-20">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -119,8 +118,6 @@ export default function App() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6">
-        
-        {/* Location Selector Toggle */}
         <div className="flex bg-[#12121c] p-1 rounded-xl border border-gray-800 mb-6 w-full sm:w-fit mx-auto sm:mx-0">
           <button
             onClick={() => { setLocationMode("default"); fetchPlaces(28.6315, 77.2167); }}
@@ -140,7 +137,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* Search Bar */}
         <div className="relative mb-5">
           <Search className="absolute left-3.5 top-3.5 text-gray-500" size={18} />
           <input
@@ -152,7 +148,6 @@ export default function App() {
           />
         </div>
 
-        {/* Categories */}
         <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4">
           {categories.map((cat) => (
             <button
@@ -169,7 +164,6 @@ export default function App() {
           ))}
         </div>
 
-        {/* Loading State */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
@@ -177,7 +171,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Error / Empty States */}
         {!loading && error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5 text-center mb-6">
             <p className="text-red-400 text-sm">{error}</p>
@@ -192,7 +185,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Places Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {!loading && !error && filteredPlaces.map((place) => (
             <div 

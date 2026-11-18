@@ -6,7 +6,6 @@ from live_data import fetch_places_from_osm
 
 app = FastAPI(title="Is It Open API")
 
-# Allow frontend to access from any origin (Vercel handles this gracefully)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://is-it-open-smoky.vercel.app"],
@@ -30,13 +29,12 @@ class PlaceResponse(BaseModel):
 def get_places(
     response: Response,
     lat: float = Query(28.6315, description="Latitude"), 
-    lon: float = Query(77.2167, description="Longitude")
+    lon: float = Query(77.2167, description="Longitude"),
+    tz: int = Query(0, description="Timezone offset in minutes from JS Date.getTimezoneOffset()")
 ):
-    # Tell Vercel's CDN to cache this result for 5 minutes (300 seconds)
-    # stale-while-revalidate allows serving old data while fetching new data in the background
     response.headers["Cache-Control"] = "public, s-maxage=300, stale-while-revalidate=600"
     
-    places = fetch_places_from_osm(lat=lat, lon=lon)
+    places = fetch_places_from_osm(lat=lat, lon=lon, tz_offset=tz)
     return places
 
 @app.get("/health")
