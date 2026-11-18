@@ -19,7 +19,7 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [locationName, setLocationName] = useState("Locating you...");
 
-  const API_BASE = "http://127.0.0.1:8000"; 
+  const API_BASE = "https://is-it-open.onrender.com"; 
 
   useEffect(() => {
     if ("geolocation" in navigator) {
