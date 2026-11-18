@@ -127,4 +127,4 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=300):
         })
 
     places.sort(key=lambda x: x["name"])
-    return places[:100]
+    return places[:50]
