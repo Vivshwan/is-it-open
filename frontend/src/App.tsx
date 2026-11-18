@@ -23,7 +23,7 @@ export default function App() {
   const [showOnlyOpen, setShowOnlyOpen] = useState(false);
 
   // Ensure this points to your live backend (Vercel or Render)
-  const API_BASE = "https://is-it-open.vercel.app"; 
+  const API_BASE = "https://is-it-open-7g44.vercel.app"; 
 
   useEffect(() => {
     if ("geolocation" in navigator) {
