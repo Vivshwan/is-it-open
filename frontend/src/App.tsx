@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { MapPin, Search, Navigation, Clock, Phone, CheckCircle2, ExternalLink } from "lucide-react";
-
+import { MapPin, Search, Navigation, Clock, Phone, CheckCircle2 } from "lucide-react";
 interface Place {
   id: number;
   name: string;
