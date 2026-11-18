@@ -216,8 +216,8 @@ export default function App() {
           />
         </div>
 
-        {/* Categories */}
-        <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 sm:justify-center">
+        {/* Categories (Fixed Desktop Scroll) */}
+        <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 md:flex-wrap md:justify-center md:overflow-visible">
           {categories.map((cat) => (
             <button
               key={cat}
