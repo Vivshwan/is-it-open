@@ -6,21 +6,20 @@ from live_data import fetch_places_from_osm
 
 app = FastAPI(title="Is It Open API")
 
+# Update this with your actual Vercel frontend URL for security
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://is-it-open-smoky.vercel.app"],
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# --- THE FIX: Removed is_open, status_message, time_info ---
 class PlaceResponse(BaseModel):
     id: int
     name: str
     category: str
-    is_open: bool
-    status_message: str
-    time_info: str
     phone: Optional[str] = None
     lat: float
     lon: float
@@ -30,8 +29,9 @@ class PlaceResponse(BaseModel):
 def get_places(
     response: Response,
     lat: float = Query(28.6315, description="Latitude"), 
-    lon: float = Query(77.2167, description="Longitude"),
+    lon: float = Query(77.2167, description="Longitude")
 ):
+    # Cache the result for 5 minutes
     response.headers["Cache-Control"] = "public, s-maxage=300, stale-while-revalidate=600"
     
     places = fetch_places_from_osm(lat=lat, lon=lon)
