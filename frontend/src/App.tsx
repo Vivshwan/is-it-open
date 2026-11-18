@@ -1,19 +1,5 @@
 import { useState, useEffect } from "react";
-import { MapPin, Search, Navigation, Clock, Phone, Map as MapIcon, List, CheckCircle2 } from "lucide-react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-
-// Fix for default Leaflet marker icons
-import icon from "leaflet/dist/images/marker-icon.png";
-import iconShadow from "leaflet/dist/images/marker-shadow.png";
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
-L.Marker.prototype.options.icon = DefaultIcon;
+import { MapPin, Search, Navigation, Clock, Phone, CheckCircle2, ExternalLink } from "lucide-react";
 
 interface Place {
   id: number;
@@ -27,14 +13,6 @@ interface Place {
   lon: number;
 }
 
-function MapUpdater({ center }: { center: [number, number] }) {
-  const map = useMap();
-  useEffect(() => {
-    map.flyTo(center, 16, { animate: true, duration: 1 });
-  }, [center, map]);
-  return null;
-}
-
 export default function App() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,14 +20,10 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [locationName, setLocationName] = useState("Locating you...");
-  const [mapCenter, setMapCenter] = useState<[number, number]>([28.6315, 77.2167]);
-  const [activePlace, setActivePlace] = useState<Place | null>(null);
-  const [showMobileMap, setShowMobileMap] = useState(false);
-  
-  // NEW: State for the Open Only filter
   const [showOnlyOpen, setShowOnlyOpen] = useState(false);
 
-  const API_BASE = "http://127.0.0.1:8000"; 
+  // Ensure this points to your live backend (Vercel or Render)
+  const API_BASE = "https://is-it-open.vercel.app"; 
 
   useEffect(() => {
     if ("geolocation" in navigator) {
@@ -57,7 +31,6 @@ export default function App() {
         (position) => {
           setLocationName("Near You");
           const { latitude, longitude } = position.coords;
-          setMapCenter([latitude, longitude]);
           fetchPlaces(latitude, longitude);
         },
         () => {
@@ -79,9 +52,6 @@ export default function App() {
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setPlaces(data);
-      if (data.length > 0) {
-        setActivePlace(data[0]);
-      }
     } catch (err: any) {
       setError("Could not load places. The map service might be busy.");
     } finally {
@@ -91,26 +61,24 @@ export default function App() {
 
   const categories = ["All", ...Array.from(new Set(places.map((p) => p.category)))];
 
-  // UPDATED: Added the showOnlyOpen filter logic
   const filteredPlaces = places.filter((place) => {
     const matchesSearch = place.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = activeCategory === "All" || place.category === activeCategory;
-    const matchesOpen = showOnlyOpen ? place.is_open : true; // <-- New logic
+    const matchesOpen = showOnlyOpen ? place.is_open : true;
     return matchesSearch && matchesCategory && matchesOpen;
   });
 
-  const handlePlaceClick = (place: Place) => {
-    setActivePlace(place);
-    setMapCenter([place.lat, place.lon]);
-    if (window.innerWidth < 768) {
-      setShowMobileMap(true);
-    }
+  // Helper to open Google Maps for directions
+  const handleGetDirections = (place: Place) => {
+    // Uses the Google Maps universal URL scheme for directions
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lon}`;
+    window.open(url, "_blank");
   };
 
   return (
-    <div className="h-screen bg-[#0a0a0f] text-gray-100 font-sans flex flex-col overflow-hidden">
-      <header className="bg-[#12121c] border-b border-gray-800 shrink-0 z-20">
-        <div className="px-4 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-[#0a0a0f] text-gray-100 font-sans selection:bg-brand-500/30">
+      <header className="bg-[#12121c] border-b border-gray-800 sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-brand-500/20 rounded-lg">
               <MapPin className="w-6 h-6 text-brand-500" />
@@ -119,7 +87,6 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-3">
-            {/* NEW: Show Open Only Toggle */}
             <button
               onClick={() => setShowOnlyOpen(!showOnlyOpen)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
@@ -136,128 +103,107 @@ export default function App() {
               <Navigation size={12} className="text-brand-500" />
               {locationName}
             </div>
-
-            <button 
-              onClick={() => setShowMobileMap(!showMobileMap)}
-              className="md:hidden flex items-center gap-2 bg-brand-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium"
-            >
-              {showMobileMap ? <List size={16} /> : <MapIcon size={16} />}
-            </button>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 flex overflow-hidden">
-        {/* Left Side: List */}
-        <div className={`w-full md:w-[450px] flex-col bg-[#0a0a0f] z-10 border-r border-gray-800 ${showMobileMap ? 'hidden md:flex' : 'flex'}`}>
-          
-          <div className="p-4 space-y-3 shrink-0">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 text-gray-500" size={18} />
-              <input
-                type="text"
-                placeholder="Search places..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#12121c] border border-gray-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-brand-500"
-              />
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                    activeCategory === cat
-                      ? "bg-brand-600 text-white border border-brand-500"
-                      : "bg-[#12121c] text-gray-400 border border-gray-800"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        <div className="space-y-4 mb-8">
+          <div className="relative">
+            <Search className="absolute left-4 top-3.5 text-gray-500" size={20} />
+            <input
+              type="text"
+              placeholder="Search for a cafe, pharmacy, restaurant..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[#12121c] border border-gray-800 rounded-2xl py-3 pl-12 pr-4 text-white placeholder-gray-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all"
+            />
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {loading && <div className="text-center text-gray-500 py-10">Scanning...</div>}
-            {error && <div className="text-center text-red-400 py-10">{error}</div>}
-            
-            {/* Empty State if no open places found */}
-            {!loading && filteredPlaces.length === 0 && (
-              <div className="text-center text-gray-500 py-10">
-                No places found matching your filters.
-              </div>
-            )}
-
-            {!loading && filteredPlaces.map((place) => (
-              <div 
-                key={place.id} 
-                onClick={() => handlePlaceClick(place)}
-                className={`cursor-pointer border rounded-xl p-4 transition-all ${
-                  activePlace?.id === place.id ? "bg-[#1f2335] border-brand-500" : "bg-[#12121c] border-gray-800 hover:border-gray-600"
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                  activeCategory === cat
+                    ? "bg-brand-600 text-white border border-brand-500"
+                    : "bg-[#12121c] text-gray-400 border border-gray-800 hover:border-gray-600"
                 }`}
               >
-                <div className="flex justify-between items-start mb-2">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider bg-gray-900 px-1.5 py-0.5 rounded">
-                    {place.category}
-                  </span>
-                  <div className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                    place.is_open ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-                  }`}>
-                    {place.status_message}
-                  </div>
-                </div>
-                <h3 className="font-bold text-white mb-2">{place.name}</h3>
-                <div className="flex items-center justify-between text-xs text-gray-400">
-                  <div className="flex items-center gap-1">
-                    <Clock size={12} /> {place.time_info}
-                  </div>
-                  {place.phone && (
-                    <a href={`tel:${place.phone}`} className="flex items-center gap-1 text-brand-400 hover:text-brand-300" onClick={e => e.stopPropagation()}>
-                      <Phone size={12} /> Call
-                    </a>
-                  )}
-                </div>
-              </div>
+                {cat}
+              </button>
             ))}
           </div>
         </div>
 
-        {/* Right Side: Map */}
-        <div className={`flex-1 relative ${showMobileMap ? 'block' : 'hidden md:block'}`}>
-          <MapContainer 
-            center={mapCenter} 
-            zoom={15} 
-            className="w-full h-full"
-            zoomControl={false}
-          >
-            <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=cb1_5bam_1_a5bf2d4e75dfa748793ce5e9"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            />
-            <MapUpdater center={mapCenter} />
-            
-            {/* Map now only renders filtered places */}
-            {filteredPlaces.map((place) => (
-              <Marker 
-                key={place.id} 
-                position={[place.lat, place.lon]}
-                eventHandlers={{
-                  click: () => setActivePlace(place),
-                }}
-              >
-                <Popup>
-                  <div className="text-gray-900 font-sans">
-                    <strong>{place.name}</strong><br/>
-                    <span className={place.is_open ? "text-green-600" : "text-red-600"}>
-                      {place.status_message}
-                    </span>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-400 text-sm animate-pulse">Scanning your neighborhood...</p>
+          </div>
+        )}
+
+        {error && !loading && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-6 text-center">
+            <p className="text-red-400 font-medium">{error}</p>
+          </div>
+        )}
+
+        {!loading && !error && filteredPlaces.length === 0 && (
+          <div className="text-center py-20">
+            <Search className="mx-auto text-gray-600 mb-4" size={40} />
+            <h3 className="text-lg font-semibold text-gray-300">No places found</h3>
+            <p className="text-gray-500 mt-1">Try adjusting your search or filters.</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {!loading && !error && filteredPlaces.map((place) => (
+            <div 
+              key={place.id} 
+              className={`bg-[#12121c] border rounded-2xl p-5 transition-all flex flex-col ${
+                place.is_open ? "border-gray-800 hover:border-brand-500/50" : "border-gray-800/50 opacity-80"
+              }`}
+            >
+              <div className="flex justify-between items-start mb-3">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-900 px-2 py-1 rounded">
+                  {place.category}
+                </span>
+                <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+                  place.is_open ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-red-500/20 text-red-400 border border-red-500/30"
+                }`}>
+                  {place.status_message}
+                </div>
+              </div>
+              
+              <h3 className="text-lg font-bold text-white mb-1 line-clamp-1">{place.name}</h3>
+              
+              <div className="flex items-center gap-1.5 text-sm text-gray-400 mt-4 mb-4">
+                <Clock size={14} className={place.is_open ? "text-green-400" : "text-gray-500"} />
+                {place.time_info}
+              </div>
+
+              {/* Action Buttons Area */}
+              <div className="mt-auto flex gap-2">
+                {place.phone && (
+                  <a 
+                    href={`tel:${place.phone}`} 
+                    className="flex-1 flex items-center justify-center gap-2 text-sm font-semibold text-brand-400 bg-brand-500/10 hover:bg-brand-500/20 px-3 py-2 rounded-lg transition-colors"
+                  >
+                    <Phone size={14} /> Call
+                  </a>
+                )}
+                
+                <button 
+                  onClick={() => handleGetDirections(place)}
+                  className="flex-1 flex items-center justify-center gap-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded-lg transition-colors"
+                >
+                  <MapPin size={14} /> Directions
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </main>
     </div>
