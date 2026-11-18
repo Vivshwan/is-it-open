@@ -19,7 +19,7 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [locationName, setLocationName] = useState("Locating you...");
 
-  const API_BASE = "https://is-it-open.onrender.com"; 
+  const API_BASE = "https://is-it-open-7g44.vercel.app"; 
 
   useEffect(() => {
     if ("geolocation" in navigator) {
