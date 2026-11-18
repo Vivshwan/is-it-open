@@ -12,7 +12,6 @@ def _query_overpass(url, query):
         ]
         urllib.request.install_opener(opener)
 
-        # Removed the invalid 'timeout' parameter from here
         api = overpy.Overpass(url=url)
         return api.query(query)
     except Exception as e:
@@ -22,7 +21,6 @@ def _query_overpass(url, query):
 def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=500):
     """Fetches real places from OpenStreetMap near a coordinate."""
     
-    # ADDED [timeout:60] right here at the start of the query
     query = f"""
     [out:json][timeout:60];
     (
@@ -34,7 +32,6 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=500):
     out center;
     """
 
-    # List of Overpass mirrors to try in order
     mirrors = [
         "https://overpass-api.de/api/interpreter",        # Primary
         "https://overpass.kumi.systems/api/interpreter",  # Mirror 1
@@ -46,7 +43,6 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=500):
         print(f"Attempting to fetch from: {url}")
         result = _query_overpass(url, query)
         
-        # If we got a result and it actually contains elements, break the loop
         if result and (len(result.nodes) > 0 or len(result.ways) > 0):
             print(f"✅ Success with {url}. Found {len(result.nodes) + len(result.ways)} elements.")
             break
@@ -67,6 +63,20 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=500):
         
         if not name:
             continue
+
+        # --- NEW: Extract Coordinates for Map ---
+        if isinstance(element, overpy.Node):
+            place_lat = element.lat
+            place_lon = element.lon
+        elif isinstance(element, overpy.Way):
+            place_lat = element.center_lat
+            place_lon = element.center_lon
+        else:
+            continue
+
+        if place_lat is None or place_lon is None:
+            continue
+        # ----------------------------------------
 
         # Extract and clean phone number
         raw_phone = tags.get("phone") or tags.get("contact:phone")
@@ -111,7 +121,9 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=500):
             "is_open": is_open,
             "status_message": status_message,
             "time_info": time_info,
-            "phone": phone
+            "phone": phone,
+            "lat": place_lat,  # <-- Added for Map
+            "lon": place_lon   # <-- Added for Map
         })
 
     places.sort(key=lambda x: x["name"])

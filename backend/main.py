@@ -22,6 +22,8 @@ class PlaceResponse(BaseModel):
     status_message: str
     time_info: str
     phone: Optional[str] = None 
+    lat: float 
+    lon: float 
 
 @app.get("/api/places", response_model=List[PlaceResponse])
 def get_places(
