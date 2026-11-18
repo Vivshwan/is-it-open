@@ -36,9 +36,8 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=500):
 
     # List of Overpass mirrors to try in order
     mirrors = [
-        "https://overpass-api.de/api/interpreter",        # Primary
-        "https://overpass.kumi.systems/api/interpreter",  # Mirror 1
-        "https://overpass.private.coffee/api/interpreter" # Mirror 2
+        "https://overpass-api.de/api/interpreter"        # Primary
+    
     ]
 
     result = None
