@@ -164,14 +164,18 @@ export default function App() {
               </div>
 
               {/* Phone Number Display */}
-              {place.phone && (
+              {place.phone ? (
                 <a 
                   href={`tel:${place.phone}`} 
-                  className="mt-3 flex items-center gap-2 text-sm text-brand-400 hover:text-brand-300 transition-colors bg-brand-500/10 px-3 py-1.5 rounded-lg w-fit"
+                  className="mt-3 flex items-center justify-center gap-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded-lg w-full transition-colors"
                 >
                   <Phone size={14} />
-                  {place.phone}
+                  Call Shop
                 </a>
+              ) : (
+                 !place.time_info.includes("Closes") && !place.time_info.includes("Opens") && (
+                   <p className="mt-3 text-xs text-gray-500 italic text-center">No contact info available</p>
+                 )
               )}
             </div>
           ))}

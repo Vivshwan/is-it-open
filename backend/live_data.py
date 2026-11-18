@@ -41,16 +41,18 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=500):
         if not name:
             continue
 
-        # Extract phone number if it exists
-        phone = tags.get("phone") or tags.get("contact:phone")
+        # Extract and clean phone number
+        raw_phone = tags.get("phone") or tags.get("contact:phone")
+        phone = raw_phone.replace(" ", "").replace("-", "") if raw_phone else None
 
         category_raw = tags.get("amenity") or tags.get("shop") or "place"
         category = category_raw.replace("_", " ").capitalize()
 
+        # Status Logic
         if not opening_hours_str:
             is_open = False
             status_message = "Hours unknown"
-            time_info = "Call to check" if phone else "No details"
+            time_info = "Call to check" if phone else "Status unavailable"
         else:
             try:
                 oh = OpeningHours(opening_hours_str)
@@ -59,7 +61,7 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=500):
                 if status == "unknown":
                     is_open = False
                     status_message = "Hours unknown"
-                    time_info = "No details"
+                    time_info = "Call to check" if phone else "Status unavailable"
                 elif status == "open":
                     is_open = True
                     status_message = "Open Now"
