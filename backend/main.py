@@ -9,7 +9,7 @@ app = FastAPI(title="Is It Open API")
 # Update this with your actual Vercel frontend URL for security
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["https://is-it-open-smoky.vercel.app"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
