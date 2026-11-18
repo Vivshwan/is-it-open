@@ -24,17 +24,17 @@ class PlaceResponse(BaseModel):
     phone: Optional[str] = None
     lat: float
     lon: float
+    opening_hours: Optional[str] = None
 
 @app.get("/api/places", response_model=List[PlaceResponse])
 def get_places(
     response: Response,
     lat: float = Query(28.6315, description="Latitude"), 
     lon: float = Query(77.2167, description="Longitude"),
-    tz: int = Query(0, description="Timezone offset in minutes from JS Date.getTimezoneOffset()")
 ):
     response.headers["Cache-Control"] = "public, s-maxage=300, stale-while-revalidate=600"
     
-    places = fetch_places_from_osm(lat=lat, lon=lon, tz_offset=tz)
+    places = fetch_places_from_osm(lat=lat, lon=lon)
     return places
 
 @app.get("/health")
