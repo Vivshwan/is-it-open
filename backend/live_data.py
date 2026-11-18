@@ -22,14 +22,14 @@ def fetch_places_from_osm(lat=28.6315, lon=77.2167, radius=300, tz_offset=0):
     """Fetches real places from OpenStreetMap near a coordinate."""
     
     query = f"""
-    [out:json][timeout:60];
+    [out:json][timeout:25]; // Lower timeout, fail fast if it's slow
     (
-      node(around:{radius},{lat},{lon})["amenity"]["name"];
-      way(around:{radius},{lat},{lon})["amenity"]["name"];
-      node(around:{radius},{lat},{lon})["shop"]["name"];
-      way(around:{radius},{lat},{lon})["shop"]["name"];
+      node(around:{radius},{lat},{lon})["amenity"~"cafe|restaurant|pharmacy|fast_food|bank"]["name"];
+      way(around:{radius},{lat},{lon})["amenity"~"cafe|restaurant|pharmacy|fast_food|bank"]["name"];
+      node(around:{radius},{lat},{lon})["shop"~"supermarket|convenience|bakery|clothes|electronics"]["name"];
+      way(around:{radius},{lat},{lon})["shop"~"supermarket|convenience|bakery|clothes|electronics"]["name"];
     );
-    out center;
+    out center 50; // ONLY return the first 50 results to speed up transfer
     """
 
     mirrors = [
